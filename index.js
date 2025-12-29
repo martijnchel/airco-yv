@@ -6,40 +6,36 @@ app.use(express.json());
 app.post('/airco', async (req, res) => {
     const { publicIp, payload } = req.body;
     
-    // We maken een lijst met alle mogelijke combinaties die we op GitHub vinden
+    // Deze paden zijn specifiek voor de nieuwste WF-RAC firmware
     const targets = [
-        `https://${publicIp}:51443/beaver/get_device_status`,
-        `http://${publicIp}:51443/beaver/get_device_status`,
-        `https://${publicIp}:51443/get_device_status`,
-        `https://${publicIp}:51443/beaver/get_config`
+        `https://${publicIp}:51443/beaver/get_device_status`, // Standaard
+        `https://${publicIp}:51443/m-air/get_device_status`, // Nieuwste firmware
+        `https://${publicIp}:51443/beaver/get_config`,        // Configuratie pad
+        `https://${publicIp}:51443/smart_mair/get_status`    // Alternatief
     ];
 
     for (let url of targets) {
         try {
-            console.log("Proberen: " + url);
+            console.log("Testen: " + url);
             const response = await axios({
                 method: 'post',
                 url: url,
                 data: payload,
                 headers: { 
-                    'Operator-Id': 'Homey-Proxy', 
-                    'X-HK-API-Key': 'none',
-                    'Accept': 'application/json'
+                    'Operator-Id': 'Homey-User-1', 
+                    'X-HK-API-Key': 'none' 
                 },
                 httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
-                timeout: 3000
+                timeout: 4000
             });
-            console.log("✅ MATCH GEVONDEN op: " + url);
-            return res.send({ success: true, url: url, data: response.data });
+            console.log("✅ MATCH! Pad gevonden: " + url);
+            return res.send(response.data);
         } catch (error) {
-            console.log(`❌ Gefaald op ${url} (Status: ${error.response ? error.response.status : 'Timeout'})`);
+            console.log(`❌ ${url} -> Status: ${error.response ? error.response.status : 'Geen reactie'}`);
         }
     }
 
-    res.status(500).send({ 
-        error: "Alle paden gaven een 404 of timeout", 
-        getest: targets 
-    });
+    res.status(500).send({ error: "Geen van de paden werkte. Airco weigert toegang." });
 });
 
 app.listen(process.env.PORT || 3000);
